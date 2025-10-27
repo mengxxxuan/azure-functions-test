@@ -1,0 +1,46 @@
+from azure.ai.documentintelligence import DocumentIntelligenceClient
+from azure.ai.documentintelligence.models import AnalyzeDocumentRequest
+from azure.core.credentials import AzureKeyCredential
+
+import os
+import json
+
+# 加载 local.settings.json 中的环境变量
+with open("local.settings.json", "r") as f:
+    settings = json.load(f)
+
+# 取出 Values 部分
+values = settings.get("Values", {})
+
+# 写入到系统环境变量
+for key, value in values.items():
+    os.environ[key] = value
+
+endpoint = os.environ["DOCUMENT_INTELLIGENCE_ENDPOINT"]
+key = os.environ["DOCUMENT_INTELLIGENCE_KEY"]
+
+
+client = DocumentIntelligenceClient(
+    endpoint=endpoint,
+    credential=AzureKeyCredential(key)
+)
+
+filepath = "travelguide_epos_platinum_SompoJapan.pdf"
+# sas_url = "https://mengstoragejp.blob.core.windows.net/testfiles/travelguide_epos_platinum_SompoJapan.pdf?se=2025-10-22T06%3A53%3A37Z&sp=r&sv=2025-11-05&sr=b&sig=dzUUS9Cf7DXCVyU7cIZtiY7oMHn4IPwGeSM5BpGmi0c%3D"
+# sas_url = "https://mengstoragejp.blob.core.windows.net/testfiles/GO領収書_20250618_1352.pdf?se=2025-10-21T20%3A55%3A00Z&sp=r&sv=2025-11-05&sr=b&sig=ZgoPYdMTil5W0bk5orP3TY8S6Z6WtgsGmnxnVL%2BoyJI%3D"
+
+with open(filepath, "rb") as f:
+    file_bytes = f.read()
+
+poller = client.begin_analyze_document(
+    "prebuilt-layout",
+    AnalyzeDocumentRequest(bytes_source=file_bytes),
+    features=["ocrHighResolution"],
+    output_content_format="markdown"
+)
+
+result = poller.result()
+
+outputfile = filepath.replace(".pdf", ".md")
+with open(outputfile, "w", encoding="utf-8") as md_file:
+    md_file.write(result.content)
